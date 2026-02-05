@@ -24,7 +24,7 @@ AIRTABLE_VIEW = 'viww1LG42sIrTNGFc'
 
 VESTA_API_KEY = 'vA9kkt@dTcyRtm@yxs.vWfbJKnw6NWNy'
 VESTA_BASE_URL = 'https://multiply.beta.vesta.com/api'
-VESTA_VERSION = '_26_1'
+VESTA_VERSION = '26.1'
 
 PARSEUR_API_KEY = 'sk_ea922e2b4f9020f29f41917a28c59e522cf4b91fdb13cff217678dfcb514eabd'
 PARSEUR_MAILBOX_NAME = 'cherubic-select-alligator'
@@ -85,7 +85,7 @@ class IndecommAutomation:
     def fetch_vesta_loan(self, loan_number: str) -> Optional[Dict]:
         """Fetch loan data from Vesta API by loan number"""
         headers = {
-            'Authorization': f'Bearer {VESTA_API_KEY}',
+            'Authorization': VESTA_API_KEY,
             'Accept': 'application/json',
             'X-Api-Version': VESTA_VERSION
         }
@@ -118,20 +118,38 @@ class IndecommAutomation:
         try:
             # Get mailbox ID first
             mailboxes_url = 'https://api.parseur.com/v1/mailboxes'
+            print(f"Fetching Parseur mailboxes...")
             response = requests.get(mailboxes_url, headers=headers)
+            
+            if response.status_code == 401:
+                self.log_error(loan_number, 'Parseur', 'Invalid API key - check API key in Parseur settings')
+                return None
+            elif response.status_code == 404:
+                self.log_error(loan_number, 'Parseur', 'API endpoint not found - verify API key is correct')
+                return None
+            
             response.raise_for_status()
             
             mailboxes = response.json()
+            
+            if not mailboxes:
+                self.log_error(loan_number, 'Parseur', 'No mailboxes found in account')
+                return None
+            
             mailbox_id = None
             
+            # Try to find mailbox by name
             for mailbox in mailboxes:
-                if PARSEUR_MAILBOX_NAME.lower() in mailbox.get('name', '').lower().replace(' ', '-'):
+                mailbox_name = mailbox.get('name', '').lower().replace(' ', '-')
+                if PARSEUR_MAILBOX_NAME.lower() in mailbox_name or mailbox_name in PARSEUR_MAILBOX_NAME.lower():
                     mailbox_id = mailbox.get('id')
+                    print(f"Found Parseur mailbox: {mailbox.get('name')} (ID: {mailbox_id})")
                     break
             
             if not mailbox_id:
-                self.log_error(loan_number, 'Parseur', f'Mailbox "{PARSEUR_MAILBOX_NAME}" not found')
-                return None
+                # Use first mailbox as fallback
+                mailbox_id = mailboxes[0].get('id')
+                self.log_warning(loan_number, 'Parseur', f'Using first mailbox: {mailboxes[0].get("name")}')
             
             # Fetch documents from mailbox
             docs_url = f'https://api.parseur.com/v1/mailboxes/{mailbox_id}/documents'
@@ -153,6 +171,9 @@ class IndecommAutomation:
             self.log_warning(loan_number, 'Parseur', 'No matching document found')
             return None
             
+        except requests.exceptions.HTTPError as e:
+            self.log_error(loan_number, 'Parseur', f'HTTP {e.response.status_code}: {str(e)}')
+            return None
         except Exception as e:
             self.log_error(loan_number, 'Parseur', str(e))
             return None
@@ -220,7 +241,7 @@ class IndecommAutomation:
         
         # Start building result with Airtable data
         result = {
-            'Channel Identifier': 'INDECOMM',
+            'Channel Identifier': 'Retail',
             'Loan Number': loan_number,
             'Loan Amount': loan_size,
             'Borrower Name': borrower_name,

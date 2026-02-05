@@ -1,0 +1,67 @@
+name: Weekly Airtable to Indecomm Export
+
+on:
+  schedule:
+    # Runs every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run export script
+      env:
+        AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      run: |
+        python airtable_vesta_parseur_automation.py
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: excel-export-${{ github.run_number }}
+        path: |
+          Funded_File_*.xlsx
+          processing_notes_*.txt
+        retention-days: 30
+    
+    - name: Send email with attachment
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: ${{ secrets.MAIL_SERVER }}
+        server_port: ${{ secrets.MAIL_PORT }}
+        username: ${{ secrets.MAIL_USERNAME }}
+        password: ${{ secrets.MAIL_PASSWORD }}
+        subject: Weekly Indecomm Export - ${{ github.run_number }}
+        to: ${{ secrets.MAIL_TO }}
+        from: ${{ secrets.MAIL_FROM }}
+        body: |
+          Weekly Airtable to Indecomm export completed successfully.
+          
+          Run Number: ${{ github.run_number }}
+          Timestamp: ${{ github.event.repository.updated_at }}
+          
+          Data Sources:
+          - Airtable: Post-Close Tracker
+          - Vesta LOS: Property information
+          - Parseur: Settlement agent details
+          
+          See attached files for the generated Excel report and processing notes.
+        attachments: |
+          Funded_File_*.xlsx
+          processing_notes_*.txt
+        priority: normal

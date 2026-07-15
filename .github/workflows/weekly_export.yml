@@ -50,29 +50,4 @@ jobs:
           processing_notes_*.txt
         retention-days: 30
     
-    - name: Send email with attachment
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: ${{ secrets.MAIL_SERVER }}
-        server_port: ${{ secrets.MAIL_PORT }}
-        username: ${{ secrets.MAIL_USERNAME }}
-        password: ${{ secrets.MAIL_PASSWORD }}
-        subject: Weekly Indecomm Export - ${{ github.run_number }}
-        to: ${{ secrets.MAIL_TO }}
-        from: ${{ secrets.MAIL_FROM }}
-        body: |
-          Weekly Airtable to Indecomm export completed successfully.
-          
-          Run Number: ${{ github.run_number }}
-          Timestamp: ${{ github.event.repository.updated_at }}
-          
-          Data Sources:
-          - Airtable: Post-Close Tracker
-          - Vesta LOS: Property information
-          - Parseur: Settlement agent details
-          
-          See attached files for the generated Excel report and processing notes.
-        attachments: |
-          Funded_File_*.xlsx
-          processing_notes_*.txt
-        priority: normal
+   

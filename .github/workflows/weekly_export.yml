@@ -5,6 +5,15 @@ on:
     # Runs every Monday at 9 AM UTC
     - cron: '0 9 * * 1'
   workflow_dispatch: # Allow manual trigger
+    inputs:
+      start_date:
+        description: 'Start of funding date range (YYYY-MM-DD, inclusive). Leave blank for no lower bound.'
+        required: false
+        default: ''
+      end_date:
+        description: 'End of funding date range (YYYY-MM-DD, inclusive). Leave blank for no upper bound.'
+        required: false
+        default: ''
 
 jobs:
   export:
@@ -27,6 +36,8 @@ jobs:
     - name: Run export script
       env:
         AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+        START_DATE: ${{ github.event.inputs.start_date }}
+        END_DATE: ${{ github.event.inputs.end_date }}
       run: |
         python airtable_vesta_parseur_automation.py
     

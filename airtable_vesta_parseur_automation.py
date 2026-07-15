@@ -31,6 +31,22 @@ PARSEUR_MAILBOX_NAME = 'cherubic-select-alligator'
 
 TEMPLATE_PATH = 'Funded_File_Template.xlsx'
 
+# Optional funding date range filter (YYYY-MM-DD, inclusive)
+START_DATE = os.environ.get('START_DATE', '').strip()
+END_DATE = os.environ.get('END_DATE', '').strip()
+
+
+def validate_date(value: str, label: str) -> Optional[str]:
+    """Validate a YYYY-MM-DD date string; exit on bad format."""
+    if not value:
+        return None
+    try:
+        datetime.strptime(value, '%Y-%m-%d')
+        return value
+    except ValueError:
+        print(f"ERROR: {label} must be in YYYY-MM-DD format (got '{value}')")
+        sys.exit(1)
+
 class IndecommAutomation:
     def __init__(self):
         self.errors = []
@@ -57,11 +73,28 @@ class IndecommAutomation:
         
         all_records = []
         offset = None
-        
+
+        # Build optional funding date filter (inclusive range)
+        conditions = []
+        if START_DATE:
+            conditions.append(
+                f"IS_AFTER({{Funding Date}}, DATEADD('{START_DATE}', -1, 'days'))"
+            )
+        if END_DATE:
+            conditions.append(
+                f"IS_BEFORE({{Funding Date}}, DATEADD('{END_DATE}', 1, 'days'))"
+            )
+        filter_formula = None
+        if conditions:
+            filter_formula = conditions[0] if len(conditions) == 1 else f"AND({', '.join(conditions)})"
+            print(f"Filtering by Funding Date: {START_DATE or 'beginning'} through {END_DATE or 'today'}")
+
         print(f"Fetching records from Airtable view: {AIRTABLE_VIEW}")
-        
+
         while True:
             params = {'view': AIRTABLE_VIEW}
+            if filter_formula:
+                params['filterByFormula'] = filter_formula
             if offset:
                 params['offset'] = offset
                 
@@ -420,6 +453,8 @@ class IndecommAutomation:
             sys.exit(1)
 
 if __name__ == '__main__':
+    validate_date(START_DATE, 'START_DATE')
+    validate_date(END_DATE, 'END_DATE')
     if not AIRTABLE_TOKEN:
         print("ERROR: AIRTABLE_TOKEN environment variable not set")
         sys.exit(1)

@@ -1,0 +1,53 @@
+name: Weekly Airtable to Indecomm Export
+
+on:
+  schedule:
+    # Runs every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual trigger
+    inputs:
+      start_date:
+        description: 'Start of funding date range (YYYY-MM-DD, inclusive). Leave blank for no lower bound.'
+        required: false
+        default: ''
+      end_date:
+        description: 'End of funding date range (YYYY-MM-DD, inclusive). Leave blank for no upper bound.'
+        required: false
+        default: ''
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run export script
+      env:
+        AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+        START_DATE: ${{ github.event.inputs.start_date }}
+        END_DATE: ${{ github.event.inputs.end_date }}
+      run: |
+        python airtable_vesta_parseur_automation.py
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: excel-export-${{ github.run_number }}
+        path: |
+          Funded_File_*.xlsx
+          processing_notes_*.txt
+        retention-days: 30
+    
+   
